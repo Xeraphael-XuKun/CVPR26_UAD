@@ -1,0 +1,41 @@
+.DS_Store
+__pycache__/
+logs/
+.vscode/
+*.py[cod]
+
+# Local datasets: keep the dataset loader source files, never the data itself.
+/datasets/*
+!/datasets/*.py
+
+# Training outputs, logs, caches, and temporary files.
+/outputs/
+/output/
+/runs/
+/checkpoints/
+/results/
+/work/
+*.log
+*.out
+*.err
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+*.onnx
+*.tar
+*.tar.gz
+*.zip
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.mat
+*.h5
+*.hdf5
+*.tmp
+
+# Local/internal material not included in the public source snapshot.
+/AGENTS.md
+/paper/
