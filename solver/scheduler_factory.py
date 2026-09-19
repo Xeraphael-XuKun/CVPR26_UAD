@@ -10,8 +10,13 @@ def create_scheduler(cfg, optimizer):
     # lr_min = 0.01 * cfg.SOLVER.BASE_LR
     # warmup_lr_init = 0.001 * cfg.SOLVER.BASE_LR
     # type 2
-    lr_min = 0.002 * cfg.SOLVER.BASE_LR
-    warmup_lr_init = 0.01 * cfg.SOLVER.BASE_LR
+    if cfg.SOLVER.BACKBONE_LR > 0:
+        group_lrs = [group['lr'] for group in optimizer.param_groups]
+        lr_min = [0.002 * lr for lr in group_lrs]
+        warmup_lr_init = [0.01 * lr for lr in group_lrs]
+    else:
+        lr_min = 0.002 * cfg.SOLVER.BASE_LR
+        warmup_lr_init = 0.01 * cfg.SOLVER.BASE_LR
     # type 3
     # lr_min = 0.001 * cfg.SOLVER.BASE_LR
     # warmup_lr_init = 0.01 * cfg.SOLVER.BASE_LR

@@ -124,6 +124,8 @@ _C.SOLVER.OPTIMIZER_NAME = "Adam"
 _C.SOLVER.MAX_EPOCHS = 100
 # Base learning rate
 _C.SOLVER.BASE_LR = 3e-4
+# Explicit backbone LR. Values <= 0 keep the legacy single-LR behavior.
+_C.SOLVER.BACKBONE_LR = -1.0
 # Whether using larger learning rate for fc layer
 _C.SOLVER.LARGE_FC_LR = False
 # Factor of learning bias

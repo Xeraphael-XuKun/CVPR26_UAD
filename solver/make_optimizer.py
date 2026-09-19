@@ -6,11 +6,16 @@ def make_optimizer(cfg, model, center_criterion):
     for key, value in model.named_parameters():
         if not value.requires_grad:
             continue
-        lr = cfg.SOLVER.BASE_LR
+        is_backbone = key.startswith("base.")
+        if is_backbone and cfg.SOLVER.BACKBONE_LR > 0:
+            lr = cfg.SOLVER.BACKBONE_LR
+        else:
+            lr = cfg.SOLVER.BASE_LR
         weight_decay = cfg.SOLVER.WEIGHT_DECAY
         if "bias" in key:
-            lr = cfg.SOLVER.BASE_LR * cfg.SOLVER.BIAS_LR_FACTOR
             weight_decay = cfg.SOLVER.WEIGHT_DECAY_BIAS
+            if not (is_backbone and cfg.SOLVER.BACKBONE_LR > 0):
+                lr = cfg.SOLVER.BASE_LR * cfg.SOLVER.BIAS_LR_FACTOR
         if cfg.SOLVER.LARGE_FC_LR:
             if "classifier" in key or "arcface" in key:
                 lr = cfg.SOLVER.BASE_LR * 2

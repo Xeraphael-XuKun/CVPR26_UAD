@@ -45,7 +45,12 @@ class CosineLRScheduler(Scheduler):
             initialize=initialize)
 
         assert t_initial > 0
-        assert lr_min >= 0
+        if not isinstance(lr_min, (list, tuple)):
+            lr_min = [lr_min] * len(self.base_values)
+        if not isinstance(warmup_lr_init, (list, tuple)):
+            warmup_lr_init = [warmup_lr_init] * len(self.base_values)
+        assert len(lr_min) == len(self.base_values) and all(v >= 0 for v in lr_min)
+        assert len(warmup_lr_init) == len(self.base_values)
         if t_initial == 1 and t_mul == 1 and decay_rate == 1:
             _logger.warning("Cosine annealing scheduler will have no effect on the learning "
                            "rate since t_initial = t_mul = eta_mul = 1.")
@@ -55,18 +60,21 @@ class CosineLRScheduler(Scheduler):
         self.decay_rate = decay_rate
         self.cycle_limit = cycle_limit
         self.warmup_t = warmup_t
-        self.warmup_lr_init = warmup_lr_init
+        self.warmup_lr_init = list(warmup_lr_init)
         self.warmup_prefix = warmup_prefix
         self.t_in_epochs = t_in_epochs
         if self.warmup_t:
-            self.warmup_steps = [(v - warmup_lr_init) / self.warmup_t for v in self.base_values]
+            self.warmup_steps = [
+                (v - warmup) / self.warmup_t
+                for v, warmup in zip(self.base_values, self.warmup_lr_init)
+            ]
             super().update_groups(self.warmup_lr_init)
         else:
             self.warmup_steps = [1 for _ in self.base_values]
 
     def _get_lr(self, t):
         if t < self.warmup_t:
-            lrs = [self.warmup_lr_init + t * s for s in self.warmup_steps]
+            lrs = [warmup + t * s for warmup, s in zip(self.warmup_lr_init, self.warmup_steps)]
         else:
             if self.warmup_prefix:
                 t = t - self.warmup_t
@@ -81,15 +89,16 @@ class CosineLRScheduler(Scheduler):
                 t_curr = t - (self.t_initial * i)
 
             gamma = self.decay_rate ** i
-            lr_min = self.lr_min * gamma
+            lr_min_values = [v * gamma for v in self.lr_min]
             lr_max_values = [v * gamma for v in self.base_values]
 
             if self.cycle_limit == 0 or (self.cycle_limit > 0 and i < self.cycle_limit):
                 lrs = [
-                    lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(math.pi * t_curr / t_i)) for lr_max in lr_max_values
+                    lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(math.pi * t_curr / t_i))
+                    for lr_min, lr_max in zip(lr_min_values, lr_max_values)
                 ]
             else:
-                lrs = [self.lr_min for _ in self.base_values]
+                lrs = list(self.lr_min)
 
         return lrs
 

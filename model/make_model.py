@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from .backbones.vit_pytorch import vit_base_in, vit_ics_lup
+from .backbones.clip_vit import clip_vit_b16
 
 def weights_init_kaiming(m):
     classname = m.__class__.__name__
@@ -51,7 +52,7 @@ class build_transformer(nn.Module):
                                                         drop_rate= cfg.MODEL.DROP_OUT,
                                                         attn_drop_rate=cfg.MODEL.ATT_DROP_RATE)
 
-        if pretrain_choice == 'imagenet':
+        if pretrain_choice in ('imagenet', 'clip'):
             self.base.load_param(model_path)
             print('Loading pretrained model......from {}'.format(model_path))
 
@@ -98,6 +99,7 @@ class build_transformer(nn.Module):
 __factory_T_type = {
     'vit_base_in': vit_base_in,
     'vit_ics_lup': vit_ics_lup,
+    'clip_vit_b16': clip_vit_b16,
 }
 
 def make_model(cfg, num_class, camera_num, view_num):
