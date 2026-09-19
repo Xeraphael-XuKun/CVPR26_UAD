@@ -54,11 +54,21 @@ def check_discriminative_lr():
     scheduler = create_scheduler(smoke_cfg, optimizer)
 
     initial_lrs = [group["initial_lr"] for group in optimizer.param_groups]
-    assert initial_lrs[:2] == [0.0008, 0.0008]
+    assert initial_lrs[:2] == [0.0008, 0.0016]
     assert initial_lrs[2] == 0.008
     epoch_one_lrs = scheduler._get_lr(1)
     assert abs(epoch_one_lrs[2] / epoch_one_lrs[0] - 10.0) < 1e-8
-    return initial_lrs, epoch_one_lrs
+    assert abs(epoch_one_lrs[1] / epoch_one_lrs[0] - 2.0) < 1e-8
+
+    smoke_cfg.SOLVER.BACKBONE_LR = 0.008
+    optimizer_all, _ = make_optimizer(smoke_cfg, model, center)
+    scheduler_all = create_scheduler(smoke_cfg, optimizer_all)
+    all_base_initial_lrs = [group["initial_lr"] for group in optimizer_all.param_groups]
+    assert all_base_initial_lrs == [0.008, 0.016, 0.008]
+    all_base_epoch_one_lrs = scheduler_all._get_lr(1)
+    assert abs(all_base_epoch_one_lrs[1] / all_base_epoch_one_lrs[0] - 2.0) < 1e-8
+    assert abs(all_base_epoch_one_lrs[2] / all_base_epoch_one_lrs[0] - 1.0) < 1e-8
+    return initial_lrs, epoch_one_lrs, all_base_initial_lrs
 
 
 def main():
@@ -67,12 +77,14 @@ def main():
     args = parser.parse_args()
 
     output_shape = check_clip_backbone(args.pretrain)
-    initial_lrs, epoch_one_lrs = check_discriminative_lr()
+    initial_lrs, epoch_one_lrs, all_base_initial_lrs = check_discriminative_lr()
     print(
-        "CLIP_VIT_SMOKE_OK output_shape={} initial_lrs={} epoch1_lrs={}".format(
+        "CLIP_VIT_SMOKE_OK output_shape={} layered_initial_lrs={} "
+        "layered_epoch1_lrs={} all_base_initial_lrs={}".format(
             output_shape,
             sorted(set(initial_lrs)),
             sorted(set(epoch_one_lrs)),
+            sorted(set(all_base_initial_lrs)),
         )
     )
 

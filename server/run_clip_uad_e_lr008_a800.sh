@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd /mnt/cache/wanghanzhi/XK/CVPR26_UAD
 
-echo "RUN=E_clip_uad_lr008 CONFIG=configs/clip_uad_lr008.yml LOSS_TYPE=base+pca+gpd NORM=0.5 BACKBONE_LR=0.008 HEAD_LR=0.008"
+echo "RUN=E_clip_uad_lr008 CONFIG=configs/clip_uad_lr008.yml LOSS_TYPE=base+pca+gpd NORM=0.5 BACKBONE_LR=0.008 BACKBONE_BIAS_LR=0.016 HEAD_LR=0.008"
 CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 train.py \
   --config_file configs/clip_uad_lr008.yml \
   MODEL.DIST_TRAIN False \
@@ -24,6 +24,7 @@ CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/pyth
   SOLVER.MAX_EPOCHS 120 \
   SOLVER.BASE_LR 0.008 \
   SOLVER.BACKBONE_LR 0.008 \
+  SOLVER.BIAS_LR_FACTOR 2 \
   SOLVER.IMS_PER_BATCH 64 \
   SOLVER.WARMUP_EPOCHS 5 \
   SOLVER.CHECKPOINT_PERIOD 120 \
