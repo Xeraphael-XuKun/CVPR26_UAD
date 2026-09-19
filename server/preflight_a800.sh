@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /mnt/cache/wanghanzhi/CVPR26_UAD
+cd /mnt/cache/wanghanzhi/XK/CVPR26_UAD
 
-/mnt/cache/wanghanzhi/envs/llmpar/bin/python3 -c "import torch, torchvision, timm, yacs, PIL, yaml, numpy; print('torch=', torch.__version__, 'torchvision=', torchvision.__version__, 'timm=', timm.__version__); print('cuda=', torch.cuda.is_available(), 'gpu=', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE'); assert torch.cuda.is_available(); assert 'A800' in torch.cuda.get_device_name(0)"
+/mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 -c "import sys, importlib.metadata as md, torch, torchvision, timm, PIL, yaml, numpy; actual={'python': '.'.join(map(str, sys.version_info[:2])), 'torch': torch.__version__.split('+')[0], 'torchvision': torchvision.__version__.split('+')[0], 'timm': timm.__version__, 'numpy': numpy.__version__, 'Pillow': PIL.__version__, 'PyYAML': yaml.__version__, 'tqdm': md.version('tqdm'), 'yacs': md.version('yacs')}; expected={'python':'3.10','torch':'2.2.2','torchvision':'0.17.2','timm':'1.0.27','numpy':'1.26.4','Pillow':'12.2.0','PyYAML':'6.0.3','tqdm':'4.67.3','yacs':'0.1.8'}; print('runtime=', actual); assert actual == expected, 'runtime version mismatch: expected {}'.format(expected); print('cuda=', torch.cuda.is_available(), 'gpu=', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE'); assert torch.cuda.is_available(); assert 'A800' in torch.cuda.get_device_name(0)"
 
 test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/RGB
 test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/IR
 test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/Thermal
 test -f /mnt/cache/wanghanzhi/Datasets/jx_vit_base_p16_224-80ecf9dd.pth
 
-CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/llmpar/bin/python3 tools/smoke_uad.py \
+CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_uad.py \
   --dataset-root /mnt/cache/wanghanzhi/Datasets \
   --pretrain /mnt/cache/wanghanzhi/Datasets/jx_vit_base_p16_224-80ecf9dd.pth

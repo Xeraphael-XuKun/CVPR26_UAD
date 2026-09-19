@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /mnt/cache/wanghanzhi/CVPR26_UAD
+cd /mnt/cache/wanghanzhi/XK/CVPR26_UAD
 
-CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/llmpar/bin/python3 train.py \
+echo "RUN=proca CONFIG=configs/ProCA.yml LOSS_TYPE=base+pca"
+CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 train.py \
   --config_file configs/ProCA.yml \
   MODEL.DIST_TRAIN False \
   MODEL.PRETRAIN_CHOICE imagenet \
@@ -32,4 +33,4 @@ CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/llmpar/bin/python
   TEST.NECK_FEAT before \
   TEST.FEAT_NORM yes \
   TEST.TOP_K_EVAL 0 \
-  OUTPUT_DIR /mnt/cache/wanghanzhi/CVPR26_UAD/outputs/whu_mars_1000/proca_seed1234
+  OUTPUT_DIR /mnt/cache/wanghanzhi/XK/CVPR26_UAD/outputs/whu_mars_1000/proca_seed1234
