@@ -9,21 +9,40 @@ import torch.nn as nn
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from model.backbones.clip_vit import clip_vit_b16
+from model.backbones.vit_pytorch import DropPath
 from solver import make_optimizer
 from solver.scheduler_factory import create_scheduler
 
 
 def check_clip_backbone(path):
-    model = clip_vit_b16(img_size=(256, 128), stride_size=(16, 16))
+    model = clip_vit_b16(
+        img_size=(256, 128),
+        stride_size=(16, 16),
+        drop_path_rate=0.1,
+    )
     model.load_param(path)
     assert model.positional_embedding.shape == (129, 768)
     assert not hasattr(model, "proj"), "512D CLIP projection must not be part of the backbone"
 
+    actual_rates = [
+        block.drop_path.drop_prob if isinstance(block.drop_path, DropPath) else 0.0
+        for block in model.transformer.resblocks
+    ]
+    expected_rates = torch.linspace(0, 0.1, 12).tolist()
+    assert torch.allclose(torch.tensor(actual_rates), torch.tensor(expected_rates))
+
+    torch.manual_seed(1234)
+    dropped = model.transformer.resblocks[-1]._apply_drop_path(torch.ones(4, 128, 8))
+    per_sample = dropped.permute(1, 0, 2).reshape(128, -1)
+    assert torch.all(per_sample == per_sample[:, :1])
+    assert (per_sample[:, 0] == 0).any(), "DropPath did not drop any sample in the smoke batch"
+
+    model.eval()
     with torch.no_grad():
         output = model(torch.zeros(1, 3, 256, 128))
     assert output.shape == (1, 768)
     assert torch.isfinite(output).all()
-    return tuple(output.shape)
+    return tuple(output.shape), actual_rates
 
 
 class OptimizerSmokeModel(nn.Module):
@@ -76,12 +95,14 @@ def main():
     parser.add_argument("--pretrain", required=True)
     args = parser.parse_args()
 
-    output_shape = check_clip_backbone(args.pretrain)
+    output_shape, drop_path_rates = check_clip_backbone(args.pretrain)
     initial_lrs, epoch_one_lrs, all_base_initial_lrs = check_discriminative_lr()
     print(
-        "CLIP_VIT_SMOKE_OK output_shape={} layered_initial_lrs={} "
+        "CLIP_VIT_SMOKE_OK output_shape={} drop_path_first_last=({:.6f}, {:.6f}) layered_initial_lrs={} "
         "layered_epoch1_lrs={} all_base_initial_lrs={}".format(
             output_shape,
+            drop_path_rates[0],
+            drop_path_rates[-1],
             sorted(set(initial_lrs)),
             sorted(set(epoch_one_lrs)),
             sorted(set(all_base_initial_lrs)),

@@ -47,23 +47,32 @@ class build_transformer(nn.Module):
         else:
             view_num = 0
 
-        self.base=factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
-                                                        camera=camera_num, view=view_num, stride_size=cfg.MODEL.STRIDE_SIZE, drop_path_rate=cfg.MODEL.DROP_PATH,
-                                                        drop_rate= cfg.MODEL.DROP_OUT,
-                                                        attn_drop_rate=cfg.MODEL.ATT_DROP_RATE)
+        backbone_seed = int(cfg.SOLVER.SEED) + 1
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(backbone_seed)
+            self.base=factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
+                                                            camera=camera_num, view=view_num, stride_size=cfg.MODEL.STRIDE_SIZE, drop_path_rate=cfg.MODEL.DROP_PATH,
+                                                            drop_rate= cfg.MODEL.DROP_OUT,
+                                                            attn_drop_rate=cfg.MODEL.ATT_DROP_RATE)
 
-        if pretrain_choice in ('imagenet', 'clip'):
-            self.base.load_param(model_path)
-            print('Loading pretrained model......from {}'.format(model_path))
+            if pretrain_choice in ('imagenet', 'clip'):
+                self.base.load_param(model_path)
+                print('Loading pretrained model......from {}'.format(model_path))
 
         self.num_classes = num_classes
 
-        self.classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
-        self.classifier.apply(weights_init_classifier)
+        shared_head_seed = int(cfg.SOLVER.SEED) + 2
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(shared_head_seed)
+            self.classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
+            self.classifier.apply(weights_init_classifier)
 
-        self.bottleneck = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck.bias.requires_grad_(False)
-        self.bottleneck.apply(weights_init_kaiming)
+            self.bottleneck = nn.BatchNorm1d(self.in_planes)
+            self.bottleneck.bias.requires_grad_(False)
+            self.bottleneck.apply(weights_init_kaiming)
+        print('Isolated RNG seeds: backbone_init={} shared_head={}'.format(
+            backbone_seed, shared_head_seed
+        ))
         
     def forward(self, x=None, label=None, camids=None, mode=0):
         if mode==0:

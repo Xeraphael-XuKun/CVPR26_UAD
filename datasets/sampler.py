@@ -74,12 +74,14 @@ class PKMSampler(Sampler):
     data_source: list of (img_path, pid, camid, modality).
     """
     
-    def __init__(self, data_source, batch_size, num_instances, modalities):
+    def __init__(self, data_source, batch_size, num_instances, modalities, seed=0):
         
         self.data_source = data_source
         self.batch_size = batch_size
         self.num_instances = num_instances
         self.num_pids_per_batch = self.batch_size // self.num_instances
+        self.random = random.Random(int(seed))
+        self.numpy_random = np.random.default_rng(int(seed))
 
         self.index_dic = defaultdict(lambda: defaultdict(list))
         self.modality_ls = list(modalities)
@@ -111,15 +113,15 @@ class PKMSampler(Sampler):
                 idxs = copy.deepcopy(self.index_dic[pid][m])
                 cur = len(idxs)
                 if cur >= need:
-                    idxs = np.random.choice(idxs, size=need, replace=False)
+                    idxs = self.numpy_random.choice(idxs, size=need, replace=False).tolist()
                 else:
                     k, r = divmod(need, cur)
                     extended_idxs = list(idxs) * k
                     if r > 0:
-                        extended_idxs += random.sample(list(idxs), r)
+                        extended_idxs += self.random.sample(list(idxs), r)
                     idxs = extended_idxs
 
-                random.shuffle(idxs)
+                self.random.shuffle(idxs)
                 groups = [idxs[i:i+self.num_instances] 
                           for i in range(0, len(idxs), self.num_instances)]
                 batch_idxs_dict[pid][m] = groups
@@ -127,7 +129,7 @@ class PKMSampler(Sampler):
         final_idxs = []
         avai_pids = copy.deepcopy(self.pids)
         while len(avai_pids) >= self.num_pids_per_batch:
-            selected_pids = random.sample(avai_pids, self.num_pids_per_batch)
+            selected_pids = self.random.sample(avai_pids, self.num_pids_per_batch)
             for pid in selected_pids:
                 temp_idxs=[]
                 for m in self.modality_ls:

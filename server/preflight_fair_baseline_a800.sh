@@ -9,9 +9,15 @@ test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/RGB
 test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/IR
 test -d /mnt/cache/wanghanzhi/Datasets/WHU-MARS/train/Thermal
 test -f /mnt/cache/wanghanzhi/Datasets/jx_vit_base_p16_224-80ecf9dd.pth
+test -f /mnt/cache/wanghanzhi/Datasets/ViT-B-16.pt
+
+/mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 -c "import glob; from config import cfg; files=sorted(glob.glob('configs/fair_*.yml')); assert len(files)==9, files; [(lambda c, f: c.merge_from_file(f))(cfg.clone(), f) for f in files]; print('FAIR_CONFIGS_OK', len(files))"
 
 CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_uad.py \
   --dataset-root /mnt/cache/wanghanzhi/Datasets \
   --pretrain /mnt/cache/wanghanzhi/Datasets/jx_vit_base_p16_224-80ecf9dd.pth
+
+CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_clip_vit.py \
+  --pretrain /mnt/cache/wanghanzhi/Datasets/ViT-B-16.pt
 
 CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_fair_baseline.py

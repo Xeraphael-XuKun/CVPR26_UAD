@@ -1,6 +1,8 @@
 import torch
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
+import random
+import numpy as np
 
 from .bases import ImageDataset, ImageDatasetTest
 from timm.data.random_erasing import RandomErasing
@@ -12,6 +14,18 @@ import torch.distributed as dist
 __factory = {
     'WHU-MARS': WHU_MARS,
 }
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % (2 ** 32)
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+
+
+def make_generator(seed):
+    generator = torch.Generator()
+    generator.manual_seed(int(seed))
+    return generator
 
 
 def train_collate_fn(batch):
@@ -30,6 +44,8 @@ def val_collate_fn(batch):
 
 
 def make_dataloader(cfg):
+    sampler_seed = int(cfg.SOLVER.SEED) + 100
+    worker_seed = int(cfg.SOLVER.SEED) + 200
     train_transforms = T.Compose([
         T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
         T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
@@ -87,9 +103,12 @@ def make_dataloader(cfg):
                 cfg.SOLVER.IMS_PER_BATCH,
                 cfg.DATALOADER.NUM_INSTANCE,
                 modalities=modalities,
+                seed=sampler_seed,
             ),
             num_workers=num_workers,
             collate_fn=train_collate_fn,
+            worker_init_fn=seed_worker,
+            generator=make_generator(worker_seed),
         )
 
     val_loaders = []
@@ -104,6 +123,8 @@ def make_dataloader(cfg):
             shuffle=False,
             num_workers=num_workers,
             collate_fn=val_collate_fn,
+            worker_init_fn=seed_worker,
+            generator=make_generator(worker_seed + 10 + len(val_loaders)),
         )
         val_loaders.append(val_loader)
         num_querys.append(len(dataset.query.get(modality, [])))
@@ -117,5 +138,10 @@ def make_dataloader(cfg):
         shuffle=False,
         num_workers=num_workers,
         collate_fn=val_collate_fn,
+        worker_init_fn=seed_worker,
+        generator=make_generator(worker_seed + 20),
     )
+    print('Isolated data RNG seeds: sampler={} train_workers={}'.format(
+        sampler_seed, worker_seed
+    ))
     return train_loader, train_loader_normal, val_loaders, num_querys, num_classes, cam_num, view_num

@@ -15,3 +15,5 @@ CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/pyth
 
 CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_clip_vit.py \
   --pretrain /mnt/cache/wanghanzhi/Datasets/ViT-B-16.pt
+
+CUDA_VISIBLE_DEVICES=0 WORLD_SIZE=1 /mnt/cache/wanghanzhi/envs/whu_mars/bin/python3 tools/smoke_fair_baseline.py

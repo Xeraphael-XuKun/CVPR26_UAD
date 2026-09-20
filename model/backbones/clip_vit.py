@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .vit_pytorch import DropPath
+
 
 class LayerNorm(nn.LayerNorm):
     """LayerNorm that keeps OpenAI CLIP's fp16-safe behavior."""
@@ -20,7 +22,7 @@ class QuickGELU(nn.Module):
 
 
 class ResidualAttentionBlock(nn.Module):
-    def __init__(self, width, heads):
+    def __init__(self, width, heads, drop_path=0.0):
         super().__init__()
         self.attn = nn.MultiheadAttention(width, heads)
         self.ln_1 = LayerNorm(width)
@@ -30,18 +32,30 @@ class ResidualAttentionBlock(nn.Module):
             ("c_proj", nn.Linear(width * 4, width)),
         ]))
         self.ln_2 = LayerNorm(width)
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+
+    def _apply_drop_path(self, x):
+        # CLIP uses [sequence, batch, channel], while the shared DropPath
+        # implementation expects batch-first tensors for per-sample masks.
+        return self.drop_path(x.permute(1, 0, 2)).permute(1, 0, 2)
 
     def forward(self, x):
         normalized = self.ln_1(x)
-        x = x + self.attn(normalized, normalized, normalized, need_weights=False)[0]
-        return x + self.mlp(self.ln_2(x))
+        attention = self.attn(normalized, normalized, normalized, need_weights=False)[0]
+        x = x + self._apply_drop_path(attention)
+        return x + self._apply_drop_path(self.mlp(self.ln_2(x)))
 
 
 class Transformer(nn.Module):
-    def __init__(self, width, layers, heads):
+    def __init__(self, width, layers, heads, drop_path_rate=0.0):
         super().__init__()
+        drop_path_rates = torch.linspace(0, drop_path_rate, layers).tolist()
+        print("CLIP DropPath rates: first={:.6f} last={:.6f} layers={}".format(
+            drop_path_rates[0], drop_path_rates[-1], layers
+        ))
         self.resblocks = nn.Sequential(*[
-            ResidualAttentionBlock(width, heads) for _ in range(layers)
+            ResidualAttentionBlock(width, heads, drop_path_rates[layer])
+            for layer in range(layers)
         ])
 
     def forward(self, x):
@@ -51,10 +65,16 @@ class Transformer(nn.Module):
 class CLIPVisionTransformer(nn.Module):
     """CLIP ViT-B/16 visual encoder ending at the 768D pre-projection CLS feature."""
 
-    def __init__(self, img_size=(256, 128), patch_size=16, width=768, layers=12, heads=12, **kwargs):
+    def __init__(self, img_size=(256, 128), patch_size=16, width=768, layers=12, heads=12,
+                 drop_path_rate=0.0, drop_rate=0.0, attn_drop_rate=0.0,
+                 camera=0, view=0, **kwargs):
         super().__init__()
         if tuple(kwargs.get("stride_size", (patch_size, patch_size))) != (patch_size, patch_size):
             raise ValueError("CLIP ViT-B/16 requires STRIDE_SIZE [16, 16]")
+        if drop_rate != 0.0 or attn_drop_rate != 0.0:
+            raise ValueError("CLIP ViT-B/16 currently requires DROP_OUT=0 and ATT_DROP_RATE=0")
+        if camera > 0 or view > 0:
+            raise ValueError("CLIP ViT-B/16 does not implement SIE camera/view embeddings")
 
         self.img_size = tuple(img_size)
         self.grid_size = (self.img_size[0] // patch_size, self.img_size[1] // patch_size)
@@ -67,7 +87,7 @@ class CLIPVisionTransformer(nn.Module):
             scale * torch.randn(self.grid_size[0] * self.grid_size[1] + 1, width)
         )
         self.ln_pre = LayerNorm(width)
-        self.transformer = Transformer(width, layers, heads)
+        self.transformer = Transformer(width, layers, heads, drop_path_rate=drop_path_rate)
         self.ln_post = LayerNorm(width)
 
     def forward(self, x, cam_label=None, modal_label=None, view_label=None):
@@ -141,7 +161,8 @@ def resize_clip_positional_embedding(positional_embedding, target_grid):
     return torch.cat([cls_pos.float(), grid_pos], dim=0)
 
 
-def clip_vit_b16(img_size=(256, 128), stride_size=(16, 16), **kwargs):
+def clip_vit_b16(img_size=(256, 128), stride_size=(16, 16), drop_path_rate=0.1,
+                 drop_rate=0.0, attn_drop_rate=0.0, camera=0, view=0, **kwargs):
     return CLIPVisionTransformer(
         img_size=img_size,
         patch_size=16,
@@ -149,4 +170,9 @@ def clip_vit_b16(img_size=(256, 128), stride_size=(16, 16), **kwargs):
         layers=12,
         heads=12,
         stride_size=stride_size,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate,
+        attn_drop_rate=attn_drop_rate,
+        camera=camera,
+        view=view,
     )
